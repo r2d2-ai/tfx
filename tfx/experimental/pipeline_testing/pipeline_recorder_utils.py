@@ -128,6 +128,7 @@ def get_latest_executions(
     List of executions for the latest run of a pipeline with the given
     pipeline_name.
   """
+
   pipeline_run_contexts = [
       c for c in metadata_connection.store.get_contexts()
       if c.name == pipeline_name

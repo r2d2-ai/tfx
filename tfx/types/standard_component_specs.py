@@ -66,41 +66,34 @@ TUNE_ARGS_KEY = 'tune_args'
 CUSTOM_CONFIG_KEY = 'custom_config'
 TRANSFORM_GRAPH_KEY = 'transform_graph'
 BEST_HYPERPARAMETERS_KEY = 'best_hyperparameters'
-# Key for bulk_inferer
-MODEL_SPEC_KEY = 'model_spec'
-DATA_SPEC_KEY = 'data_spec'
-OUTPUT_EXAMPLE_SPEC_KEY = 'output_example_spec'
-MODEL_BLESSING_KEY = 'model_blessing'
-INFERENCE_RESULT_KEY = 'inference_result'
-OUTPUT_EXAMPLES_KEY = 'output_examples'
 
 
 class BulkInferrerSpec(ComponentSpec):
   """BulkInferrer component spec."""
 
   PARAMETERS = {
-      MODEL_SPEC_KEY:
+      'model_spec':
           ExecutionParameter(type=bulk_inferrer_pb2.ModelSpec, optional=True),
-      DATA_SPEC_KEY:
+      'data_spec':
           ExecutionParameter(type=bulk_inferrer_pb2.DataSpec, optional=True),
-      OUTPUT_EXAMPLE_SPEC_KEY:
+      'output_example_spec':
           ExecutionParameter(
               type=bulk_inferrer_pb2.OutputExampleSpec, optional=True),
   }
   INPUTS = {
-      EXAMPLES_KEY:
+      'examples':
           ChannelParameter(type=standard_artifacts.Examples),
-      MODEL_KEY:
+      'model':
           ChannelParameter(type=standard_artifacts.Model, optional=True),
-      MODEL_BLESSING_KEY:
+      'model_blessing':
           ChannelParameter(
               type=standard_artifacts.ModelBlessing, optional=True),
   }
   OUTPUTS = {
-      INFERENCE_RESULT_KEY:
+      'inference_result':
           ChannelParameter(
               type=standard_artifacts.InferenceResult, optional=True),
-      OUTPUT_EXAMPLES_KEY:
+      'output_examples':
           ChannelParameter(type=standard_artifacts.Examples, optional=True),
   }
 

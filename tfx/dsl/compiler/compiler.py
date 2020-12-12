@@ -14,23 +14,23 @@
 """Compiles a TFX pipeline into a TFX DSL IR proto."""
 import json
 import re
-
-from typing import cast, List, Mapping, Iterable
+from typing import Iterable, List, Mapping, cast
 
 from tfx import types
-from tfx.components.common_nodes import importer_node
-from tfx.components.common_nodes import resolver_node as resolver_consts
 from tfx.dsl.compiler import compiler_utils
 from tfx.dsl.compiler import constants
 from tfx.dsl.components.base import base_component
 from tfx.dsl.components.base import base_driver
 from tfx.dsl.components.base import base_node
+from tfx.dsl.components.common import importer_node
+from tfx.dsl.components.common import resolver_node as resolver_consts
 from tfx.orchestration import data_types
 from tfx.orchestration import data_types_utils
 from tfx.orchestration import pipeline
 from tfx.proto.orchestration import executable_spec_pb2
 from tfx.proto.orchestration import pipeline_pb2
 from tfx.utils import json_utils
+
 from ml_metadata.proto import metadata_store_pb2
 
 
