@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*  Added a resolver that can resolve spans based on range_config.
+
 ## Breaking changes
 
 ### For pipeline authors
