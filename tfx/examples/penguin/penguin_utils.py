@@ -13,7 +13,10 @@
 # limitations under the License.
 """Python source which includes pipeline functions for the Penguins dataset.
 
-The utilities in this file are used to build a model with native Keras.
+The utilities in this file are used to build a model with native Keras or with
+Flax. For Flax, only a few changes are needed for the Trainer component. The
+actual Flax-specific training is in the penguin_utils_flax.py.
+
 This module file will be used in the Transform, Tuner and generic Trainer
 components.
 """
@@ -28,7 +31,14 @@ import tensorflow_transform as tft
 from tfx.components.trainer.fn_args_utils import DataAccessor
 from tfx.components.trainer.fn_args_utils import FnArgs
 from tfx.components.tuner.component import TunerFnResult
+
 from tfx_bsl.tfxio import dataset_options
+
+try:
+  # Allow running even when Flax is not installed.
+  from tfx.examples.penguin import penguin_utils_flax  # pylint: disable=g-import-not-at-top
+except ImportError:
+  penguin_utils_flax = None
 
 _FEATURE_KEYS = [
     'culmen_length_mm', 'culmen_depth_mm', 'flipper_length_mm', 'body_mass_g'
@@ -213,6 +223,7 @@ def run_fn(fn_args: FnArgs):
     fn_args: Holds args used to train the model as name/value pairs.
   """
   tf_transform_output = tft.TFTransformOutput(fn_args.transform_output)
+  model_framework = fn_args.custom_config['model_framework']
 
   train_dataset = _input_fn(
       fn_args.train_files,
@@ -235,27 +246,45 @@ def run_fn(fn_args: FnArgs):
     hparams = _get_hyperparameters()
   absl.logging.info('HyperParameters for training: %s' % hparams.get_config())
 
-  mirrored_strategy = tf.distribute.MirroredStrategy()
-  with mirrored_strategy.scope():
-    model = _build_keras_model(hparams)
+  if model_framework == 'keras':
+    mirrored_strategy = tf.distribute.MirroredStrategy()
+    with mirrored_strategy.scope():
+      model = _build_keras_model(hparams)
 
-  # Write logs to path
-  tensorboard_callback = tf.keras.callbacks.TensorBoard(
-      log_dir=fn_args.model_run_dir, update_freq='batch')
+    # Write logs to path
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(
+        log_dir=fn_args.model_run_dir, update_freq='batch')
 
-  model.fit(
-      train_dataset,
-      steps_per_epoch=fn_args.train_steps,
-      validation_data=eval_dataset,
-      validation_steps=fn_args.eval_steps,
-      callbacks=[tensorboard_callback])
+    model.fit(
+        train_dataset,
+        steps_per_epoch=fn_args.train_steps,
+        validation_data=eval_dataset,
+        validation_steps=fn_args.eval_steps,
+        callbacks=[tensorboard_callback])
+
+    serving_batch_size = None
+
+  elif model_framework == 'flax':
+    assert penguin_utils_flax is not None, 'Flax not installed'
+    # TODO(necula): Use the hyperparameters to construct the model
+    model = penguin_utils_flax.get_trained_model(
+        train_dataset.as_numpy_iterator(),
+        eval_dataset.as_numpy_iterator(),
+        num_epochs=1,
+        steps_per_epoch=fn_args.train_steps,
+        eval_steps_per_epoch=fn_args.eval_steps,
+        tensorboard_log_dir=fn_args.model_run_dir)
+    # TODO(necula): batch polymorphic model not yet supported.
+    serving_batch_size = 1
+  else:
+    assert False, model_framework
 
   signatures = {
       'serving_default':
           _get_serve_tf_examples_fn(model,
                                     tf_transform_output).get_concrete_function(
                                         tf.TensorSpec(
-                                            shape=[None],
+                                            shape=[serving_batch_size],
                                             dtype=tf.string,
                                             name='examples')),
   }

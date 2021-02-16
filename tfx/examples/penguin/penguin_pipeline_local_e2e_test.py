@@ -18,6 +18,8 @@ from typing import Text
 import unittest
 
 from absl import logging
+from absl.testing import parameterized
+
 import tensorflow as tf
 
 from tfx.dsl.io import fileio
@@ -28,7 +30,8 @@ from tfx.orchestration.local.local_dag_runner import LocalDagRunner
 
 @unittest.skipIf(tf.__version__ < '2',
                  'Uses keras Model only compatible with TF 2.x')
-class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
+class PenguinPipelineLocalEndToEndTest(tf.test.TestCase,
+                                       parameterized.TestCase):
 
   def setUp(self):
     super(PenguinPipelineLocalEndToEndTest, self).setUp()
@@ -55,7 +58,7 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
     outputs = fileio.listdir(component_path)
     for output in outputs:
       execution = fileio.listdir(os.path.join(component_path, output))
-      self.assertEqual(1, len(execution))
+      self.assertLen(execution, 1)
 
   def assertPipelineExecution(self, has_tuner: bool) -> None:
     self.assertExecutedOnce('CsvExampleGen')
@@ -69,7 +72,10 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
     if has_tuner:
       self.assertExecutedOnce('Tuner')
 
-  def testPenguinPipelineLocal(self):
+  @parameterized.parameters(
+      ('keras',),
+      ('flax',))
+  def testPenguinPipelineLocal(self, model_framework='flax'):
     pipeline = penguin_pipeline_local._create_pipeline(
         pipeline_name=self._pipeline_name,
         data_root=self._data_root,
@@ -78,7 +84,8 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
         pipeline_root=self._pipeline_root,
         metadata_path=self._metadata_path,
         enable_tuning=False,
-        beam_pipeline_args=[])
+        beam_pipeline_args=[],
+        model_framework=model_framework)
 
     logging.info('Starting the first pipeline run.')
     LocalDagRunner().run(pipeline)
@@ -102,10 +109,9 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
 
     with metadata.Metadata(metadata_config) as m:
       # Artifact count is increased by 3 caused by Evaluator and Pusher.
-      self.assertEqual(artifact_count + 3, len(m.store.get_artifacts()))
+      self.assertLen(m.store.get_artifacts(), artifact_count + 3)
       artifact_count = len(m.store.get_artifacts())
-      self.assertEqual(expected_execution_count * 2,
-                       len(m.store.get_executions()))
+      self.assertLen(m.store.get_executions(), expected_execution_count * 2)
 
     logging.info('Starting the third pipeline run. '
                  'All components will use cached results.')
@@ -114,9 +120,8 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
     # Asserts cache execution.
     with metadata.Metadata(metadata_config) as m:
       # Artifact count is unchanged.
-      self.assertEqual(artifact_count, len(m.store.get_artifacts()))
-      self.assertEqual(expected_execution_count * 3,
-                       len(m.store.get_executions()))
+      self.assertLen(m.store.get_artifacts(), artifact_count)
+      self.assertLen(m.store.get_executions(), expected_execution_count * 3)
 
   def testPenguinPipelineLocalWithTuner(self):
     LocalDagRunner().run(
@@ -128,7 +133,8 @@ class PenguinPipelineLocalEndToEndTest(tf.test.TestCase):
             pipeline_root=self._pipeline_root,
             metadata_path=self._metadata_path,
             enable_tuning=True,
-            beam_pipeline_args=[]))
+            beam_pipeline_args=[],
+            model_framework='keras'))
 
     self.assertTrue(fileio.exists(self._serving_model_dir))
     self.assertTrue(fileio.exists(self._metadata_path))
